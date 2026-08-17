@@ -62,7 +62,7 @@ func TestFilterSwaps(t *testing.T) {
 	fromBlock := big.NewInt(100)
 	toBlock := big.NewInt(200)
 
-	swaps, err := client.FilterSwaps(context.Background(), fromBlock, toBlock)
+	swaps, err := client.HTTP.FilterSwaps(context.Background(), fromBlock, toBlock)
 	if err != nil {
 		t.Fatalf("FilterSwaps() error = %v", err)
 	}
@@ -94,7 +94,7 @@ func TestFilterSwapsAllowsDefaultBlockRange(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	swaps, err := client.FilterSwaps(context.Background(), nil, nil)
+	swaps, err := client.HTTP.FilterSwaps(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("FilterSwaps() error = %v", err)
 	}
@@ -138,7 +138,7 @@ func TestFilterSwapsRejectsUnexpectedLogs(t *testing.T) {
 				t.Fatalf("NewClient() error = %v", err)
 			}
 
-			_, err = client.FilterSwaps(context.Background(), nil, nil)
+			_, err = client.HTTP.FilterSwaps(context.Background(), nil, nil)
 			if err == nil {
 				t.Fatal("FilterSwaps() error = nil")
 			}
@@ -159,7 +159,7 @@ func TestFilterSwapsWrapsRPCError(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	_, err = client.FilterSwaps(context.Background(), nil, nil)
+	_, err = client.HTTP.FilterSwaps(context.Background(), nil, nil)
 	if err == nil {
 		t.Fatal("FilterSwaps() error = nil")
 	}

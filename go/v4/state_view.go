@@ -34,18 +34,18 @@ type Slot0 struct {
 //
 // Version:
 //   - 2026-08-17: Added.
-func (c *Client) GetSlot0(ctx context.Context, poolID protocol.PoolID, blockNumber *big.Int) (Slot0, error) {
+func (c *HTTPClient) GetSlot0(ctx context.Context, poolID protocol.PoolID, blockNumber *big.Int) (Slot0, error) {
 	if c == nil {
 		return Slot0{}, fmt.Errorf("failed to get uniswap v4 slot0: client=null")
 	}
-	if c.httpRPCClient == nil {
+	if c.rpc == nil {
 		return Slot0{}, fmt.Errorf("failed to get uniswap v4 slot0: http_rpc_client=null")
 	}
 	if poolID.IsZero() {
 		return Slot0{}, fmt.Errorf("failed to get uniswap v4 slot0: pool_id=empty")
 	}
 
-	configured, err := c.hasPoolID(poolID)
+	configured, err := hasPoolID(c.poolKeys, poolID)
 	if err != nil {
 		return Slot0{}, fmt.Errorf("failed to get uniswap v4 slot0: %w", err)
 	}
@@ -59,7 +59,7 @@ func (c *Client) GetSlot0(ctx context.Context, poolID protocol.PoolID, blockNumb
 	}
 
 	stateView := c.stateView
-	result, err := c.httpRPCClient.CallContract(ctx, ethereum.CallMsg{
+	result, err := c.rpc.CallContract(ctx, ethereum.CallMsg{
 		To:   &stateView,
 		Data: data,
 	}, blockNumber)
@@ -73,20 +73,6 @@ func (c *Client) GetSlot0(ctx context.Context, poolID protocol.PoolID, blockNumb
 	}
 
 	return slot0, nil
-}
-
-func (c *Client) hasPoolID(poolID protocol.PoolID) (bool, error) {
-	for i, poolKey := range c.poolKeys {
-		configuredPoolID, err := poolKey.ID()
-		if err != nil {
-			return false, fmt.Errorf("failed to match uniswap v4 pool id: %w: pool_index=%d", err, i)
-		}
-		if configuredPoolID == poolID {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func encodeGetSlot0Call(poolID protocol.PoolID) ([]byte, error) {

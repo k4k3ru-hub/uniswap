@@ -56,20 +56,20 @@ func TestNewClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	if client.httpRPCClient != httpClient {
+	if client.HTTP == nil || client.HTTP.rpc != httpClient {
 		t.Fatal("httpRPCClient was not composed")
 	}
-	if client.wsRPCClient != wsClient {
+	if client.WS == nil || client.WS.rpc != wsClient {
 		t.Fatal("wsRPCClient was not composed")
 	}
-	if client.poolManager != poolManager {
-		t.Fatalf("poolManager = %s, want %s", client.poolManager.Hex(), poolManager.Hex())
+	if client.HTTP.poolManager != poolManager || client.WS.poolManager != poolManager {
+		t.Fatalf("pool managers = (%s, %s), want %s", client.HTTP.poolManager.Hex(), client.WS.poolManager.Hex(), poolManager.Hex())
 	}
-	if client.stateView != stateView {
-		t.Fatalf("stateView = %s, want %s", client.stateView.Hex(), stateView.Hex())
+	if client.HTTP.stateView != stateView {
+		t.Fatalf("stateView = %s, want %s", client.HTTP.stateView.Hex(), stateView.Hex())
 	}
-	if len(client.poolKeys) != 1 || client.poolKeys[0] != poolKey {
-		t.Fatalf("poolKeys = %+v, want [%+v]", client.poolKeys, poolKey)
+	if len(client.HTTP.poolKeys) != 1 || client.HTTP.poolKeys[0] != poolKey || len(client.WS.poolKeys) != 1 || client.WS.poolKeys[0] != poolKey {
+		t.Fatalf("composed pool keys do not match %+v", poolKey)
 	}
 }
 
@@ -86,49 +86,49 @@ func TestNewClientRejectsInvalidParams(t *testing.T) {
 			mutate: func(params *ClientParams) {
 				params.HTTPRPCClient = nil
 			},
-			wantError: "failed to create uniswap v4 client: http_rpc_client=null",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: http_rpc_client=null",
 		},
 		{
 			name: "missing WebSocket RPC client",
 			mutate: func(params *ClientParams) {
 				params.WSRPCClient = nil
 			},
-			wantError: "failed to create uniswap v4 client: ws_rpc_client=null",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 ws client: ws_rpc_client=null",
 		},
 		{
 			name: "empty pool manager",
 			mutate: func(params *ClientParams) {
 				params.PoolManager.Address = common.Address{}
 			},
-			wantError: "failed to create uniswap v4 client: pool_manager=empty",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: pool_manager=empty",
 		},
 		{
 			name: "empty state view",
 			mutate: func(params *ClientParams) {
 				params.PoolManager.StateView = common.Address{}
 			},
-			wantError: "failed to create uniswap v4 client: state_view=empty",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: state_view=empty",
 		},
 		{
 			name: "empty pool keys",
 			mutate: func(params *ClientParams) {
 				params.PoolManager.PoolKeys = nil
 			},
-			wantError: "failed to create uniswap v4 client: pool_keys=empty",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: failed to validate uniswap v4 pool keys: pool_keys=empty",
 		},
 		{
 			name: "invalid pool key",
 			mutate: func(params *ClientParams) {
 				params.PoolManager.PoolKeys[0].TickSpacing = 0
 			},
-			wantError: "failed to create uniswap v4 client: failed to validate uniswap v4 pool key: tick_spacing=out_of_range min_value=1 max_value=32767: pool_index=0",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: failed to validate uniswap v4 pool keys: failed to validate uniswap v4 pool key: tick_spacing=out_of_range min_value=1 max_value=32767: pool_index=0",
 		},
 		{
 			name: "duplicate pool key",
 			mutate: func(params *ClientParams) {
 				params.PoolManager.PoolKeys = append(params.PoolManager.PoolKeys, params.PoolManager.PoolKeys[0])
 			},
-			wantError: "failed to create uniswap v4 client: duplicate pool key:",
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: failed to validate uniswap v4 pool keys: duplicate pool key:",
 		},
 	}
 
@@ -160,8 +160,40 @@ func TestNewClientCopiesPoolKeys(t *testing.T) {
 	}
 
 	params.PoolManager.PoolKeys[0] = testPoolKey(4)
-	if client.poolKeys[0] != originalPoolKey {
-		t.Fatalf("client pool key changed to %+v, want %+v", client.poolKeys[0], originalPoolKey)
+	if client.HTTP.poolKeys[0] != originalPoolKey || client.WS.poolKeys[0] != originalPoolKey {
+		t.Fatalf("client pool keys changed, want %+v", originalPoolKey)
+	}
+}
+
+func TestNewHTTPClientDoesNotRequireWebSocket(t *testing.T) {
+	t.Parallel()
+
+	params := validClientParams()
+	client, err := NewHTTPClient(HTTPClientParams{
+		RPC:         params.HTTPRPCClient,
+		PoolManager: params.PoolManager,
+	})
+	if err != nil {
+		t.Fatalf("NewHTTPClient() error = %v", err)
+	}
+	if client.rpc != params.HTTPRPCClient {
+		t.Fatal("HTTP RPC client was not composed")
+	}
+}
+
+func TestNewWSClientDoesNotRequireHTTP(t *testing.T) {
+	t.Parallel()
+
+	params := validClientParams()
+	client, err := NewWSClient(WSClientParams{
+		RPC:         params.WSRPCClient,
+		PoolManager: params.PoolManager,
+	})
+	if err != nil {
+		t.Fatalf("NewWSClient() error = %v", err)
+	}
+	if client.rpc != params.WSRPCClient {
+		t.Fatal("WebSocket RPC client was not composed")
 	}
 }
 

@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.3
+	github.com/k4k3ru-hub/cli/go v0.0.0-20260817151915-a1c30890d1b3
 	github.com/k4k3ru-hub/onchain/go v0.0.0-20260817125822-12e22125e312
 )
 

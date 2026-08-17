@@ -60,7 +60,7 @@ func TestGetSlot0(t *testing.T) {
 	}
 	blockNumber := big.NewInt(12_345)
 
-	got, err := client.GetSlot0(context.Background(), poolID, blockNumber)
+	got, err := client.HTTP.GetSlot0(context.Background(), poolID, blockNumber)
 	if err != nil {
 		t.Fatalf("GetSlot0() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestGetSlot0AllowsLatestBlock(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	if _, err := client.GetSlot0(context.Background(), poolID, nil); err != nil {
+	if _, err := client.HTTP.GetSlot0(context.Background(), poolID, nil); err != nil {
 		t.Fatalf("GetSlot0() error = %v", err)
 	}
 	if rpc.blockNumber != nil {
@@ -121,7 +121,7 @@ func TestGetSlot0RejectsInvalidState(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		client    *Client
+		client    *HTTPClient
 		poolID    protocol.PoolID
 		wantError string
 	}{
@@ -165,12 +165,14 @@ func TestGetSlot0WrapsCallError(t *testing.T) {
 	}
 }
 
-func newStateViewClient(t *testing.T, result []byte, callErr error) *Client {
+func newStateViewClient(t *testing.T, result []byte, callErr error) *HTTPClient {
 	t.Helper()
 
 	params := validClientParams()
-	params.HTTPRPCClient = &stateViewHTTPRPCClient{result: result, err: callErr}
-	client, err := NewClient(params)
+	client, err := NewHTTPClient(HTTPClientParams{
+		RPC:         &stateViewHTTPRPCClient{result: result, err: callErr},
+		PoolManager: params.PoolManager,
+	})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}

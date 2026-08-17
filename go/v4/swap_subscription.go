@@ -73,25 +73,25 @@ func (s *SwapSubscription) Unsubscribe() {
 //
 // Version:
 //   - 2026-08-17: Added.
-func (c *Client) SubscribeSwaps(ctx context.Context) (*SwapSubscription, error) {
+func (c *WSClient) SubscribeSwaps(ctx context.Context) (*SwapSubscription, error) {
 	if c == nil {
 		return nil, fmt.Errorf("failed to subscribe uniswap v4 swaps: client=null")
 	}
-	if c.wsRPCClient == nil {
+	if c.rpc == nil {
 		return nil, fmt.Errorf("failed to subscribe uniswap v4 swaps: ws_rpc_client=null")
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	poolIDTopics, err := c.poolIDTopics()
+	poolIDTopics, err := poolIDTopics(c.poolKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe uniswap v4 swaps: %w", err)
 	}
 
 	subscriptionCtx, cancel := context.WithCancel(ctx)
 	logs := make(chan types.Log, swapLogBufferSize)
-	source, err := c.wsRPCClient.SubscribeFilterLogs(subscriptionCtx, ethereum.FilterQuery{
+	source, err := c.rpc.SubscribeFilterLogs(subscriptionCtx, ethereum.FilterQuery{
 		Addresses: []common.Address{c.poolManager},
 		Topics: [][]common.Hash{
 			{swapEventSignatureHash()},
@@ -118,7 +118,7 @@ func (c *Client) SubscribeSwaps(ctx context.Context) (*SwapSubscription, error) 
 	return subscription, nil
 }
 
-func (c *Client) consumeSwapLogs(ctx context.Context, logs <-chan types.Log, subscription *SwapSubscription) {
+func (c *WSClient) consumeSwapLogs(ctx context.Context, logs <-chan types.Log, subscription *SwapSubscription) {
 	defer close(subscription.swaps)
 	defer close(subscription.errs)
 	defer subscription.Unsubscribe()
@@ -152,7 +152,7 @@ func (c *Client) consumeSwapLogs(ctx context.Context, logs <-chan types.Log, sub
 	}
 }
 
-func (c *Client) decodeSubscribedSwap(eventLog types.Log) (Swap, error) {
+func (c *WSClient) decodeSubscribedSwap(eventLog types.Log) (Swap, error) {
 	if eventLog.Address != c.poolManager {
 		return Swap{}, fmt.Errorf("failed to decode subscribed uniswap v4 swap: pool_manager=invalid")
 	}
@@ -161,7 +161,7 @@ func (c *Client) decodeSubscribedSwap(eventLog types.Log) (Swap, error) {
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode subscribed uniswap v4 swap: %w", err)
 	}
-	configured, err := c.hasPoolID(swap.PoolID)
+	configured, err := hasPoolID(c.poolKeys, swap.PoolID)
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode subscribed uniswap v4 swap: %w", err)
 	}

@@ -63,7 +63,7 @@ func TestSubscribeSwaps(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	subscription, err := client.SubscribeSwaps(context.Background())
+	subscription, err := client.WS.SubscribeSwaps(context.Background())
 	if err != nil {
 		t.Fatalf("SubscribeSwaps() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestSubscribeSwapsReportsInvalidLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	subscription, err := client.SubscribeSwaps(context.Background())
+	subscription, err := client.WS.SubscribeSwaps(context.Background())
 	if err != nil {
 		t.Fatalf("SubscribeSwaps() error = %v", err)
 	}
@@ -133,7 +133,7 @@ func TestSubscribeSwapsReportsSourceError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	subscription, err := client.SubscribeSwaps(context.Background())
+	subscription, err := client.WS.SubscribeSwaps(context.Background())
 	if err != nil {
 		t.Fatalf("SubscribeSwaps() error = %v", err)
 	}
@@ -161,7 +161,7 @@ func TestSubscribeSwapsStopsWithContext(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	subscription, err := client.SubscribeSwaps(ctx)
+	subscription, err := client.WS.SubscribeSwaps(ctx)
 	if err != nil {
 		t.Fatalf("SubscribeSwaps() error = %v", err)
 	}
@@ -188,7 +188,7 @@ func TestSubscribeSwapsWrapsCreationError(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	_, err = client.SubscribeSwaps(context.Background())
+	_, err = client.WS.SubscribeSwaps(context.Background())
 	if err == nil {
 		t.Fatal("SubscribeSwaps() error = nil")
 	}

@@ -22,20 +22,20 @@ import (
 //
 // Version:
 //   - 2026-08-17: Added.
-func (c *Client) FilterSwaps(ctx context.Context, fromBlock, toBlock *big.Int) ([]Swap, error) {
+func (c *HTTPClient) FilterSwaps(ctx context.Context, fromBlock, toBlock *big.Int) ([]Swap, error) {
 	if c == nil {
 		return nil, fmt.Errorf("failed to filter uniswap v4 swaps: client=null")
 	}
-	if c.httpRPCClient == nil {
+	if c.rpc == nil {
 		return nil, fmt.Errorf("failed to filter uniswap v4 swaps: http_rpc_client=null")
 	}
 
-	poolIDTopics, err := c.poolIDTopics()
+	poolIDTopics, err := poolIDTopics(c.poolKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter uniswap v4 swaps: %w", err)
 	}
 
-	logs, err := c.httpRPCClient.FilterLogs(ctx, ethereum.FilterQuery{
+	logs, err := c.rpc.FilterLogs(ctx, ethereum.FilterQuery{
 		FromBlock: fromBlock,
 		ToBlock:   toBlock,
 		Addresses: []common.Address{c.poolManager},
@@ -58,7 +58,7 @@ func (c *Client) FilterSwaps(ctx context.Context, fromBlock, toBlock *big.Int) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to filter uniswap v4 swaps: %w: result_index=%d", err, i)
 		}
-		configured, err := c.hasPoolID(swap.PoolID)
+		configured, err := hasPoolID(c.poolKeys, swap.PoolID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to filter uniswap v4 swaps: %w: result_index=%d", err, i)
 		}
@@ -70,17 +70,4 @@ func (c *Client) FilterSwaps(ctx context.Context, fromBlock, toBlock *big.Int) (
 	}
 
 	return swaps, nil
-}
-
-func (c *Client) poolIDTopics() ([]common.Hash, error) {
-	topics := make([]common.Hash, 0, len(c.poolKeys))
-	for i, poolKey := range c.poolKeys {
-		poolID, err := poolKey.ID()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build uniswap v4 pool id topics: %w: pool_index=%d", err, i)
-		}
-		topics = append(topics, poolID.Hash())
-	}
-
-	return topics, nil
 }
