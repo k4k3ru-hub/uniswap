@@ -77,3 +77,46 @@ func TestByChainIDRejectsUnsupportedChain(t *testing.T) {
 		t.Fatalf("error = %q, want chain_id context", err)
 	}
 }
+
+func TestQuoterByChainID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		chainID uint64
+		quoter  string
+	}{
+		{1, "0x52f0e24d1c21c8a0cb1e5a5dd6198556bd9e1203"},
+		{56, "0x9f75dd27d6664c475b90e105573e550ff69437b0"},
+		{8453, "0x0d5e0f971ed27fbff6c2837bf31316121532048d"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.quoter, func(t *testing.T) {
+			t.Parallel()
+			got, err := QuoterByChainID(test.chainID)
+			if err != nil {
+				t.Fatalf("QuoterByChainID(%d) error = %v", test.chainID, err)
+			}
+			want := common.HexToAddress(test.quoter)
+			if got == (common.Address{}) || got != want {
+				t.Fatalf("quoter = %s, want %s", got.Hex(), want.Hex())
+			}
+			deployment, err := ByChainID(test.chainID)
+			if err != nil {
+				t.Fatalf("ByChainID(%d) error = %v", test.chainID, err)
+			}
+			if deployment.Quoter != want {
+				t.Fatalf("Deployment.Quoter = %s, want %s", deployment.Quoter.Hex(), want.Hex())
+			}
+		})
+	}
+}
+
+func TestQuoterByChainIDRejectsUnsupportedChain(t *testing.T) {
+	t.Parallel()
+
+	got, err := QuoterByChainID(0)
+	if err == nil || got != (common.Address{}) || !strings.Contains(err.Error(), "chain_id=0") {
+		t.Fatalf("QuoterByChainID(0) = (%s, %v), want zero address and chain error", got.Hex(), err)
+	}
+}

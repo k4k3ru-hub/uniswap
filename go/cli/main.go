@@ -238,6 +238,7 @@ func executeGetSlot0(ctx context.Context, input getSlot0Input) (getSlot0Output, 
 		PoolManager: myUniswapV4.PoolManagerConfig{
 			Address:   officialDeployment.PoolManager,
 			StateView: officialDeployment.StateView,
+			Quoter:    officialDeployment.Quoter,
 			PoolKeys:  []protocol.PoolKey{input.PoolKey},
 		},
 	})

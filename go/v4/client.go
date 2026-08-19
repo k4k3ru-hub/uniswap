@@ -24,6 +24,7 @@ type WSRPCClient interface {
 type PoolManagerConfig struct {
 	Address   common.Address
 	StateView common.Address
+	Quoter    common.Address
 	PoolKeys  []protocol.PoolKey
 }
 
@@ -47,6 +48,7 @@ type HTTPClient struct {
 	rpc         HTTPRPCClient
 	poolManager common.Address
 	stateView   common.Address
+	quoter      common.Address
 	poolKeys    []protocol.PoolKey
 }
 
@@ -71,6 +73,7 @@ type Client struct {
 //   - Client creation error.
 //
 // Version:
+//   - 2026-08-19: Required a V4Quoter deployment for HTTP quote operations.
 //   - 2026-08-18: Added.
 func NewHTTPClient(params HTTPClientParams) (*HTTPClient, error) {
 	if params.RPC == nil {
@@ -82,6 +85,9 @@ func NewHTTPClient(params HTTPClientParams) (*HTTPClient, error) {
 	if params.PoolManager.StateView == (common.Address{}) {
 		return nil, fmt.Errorf("failed to create uniswap v4 http client: state_view=empty")
 	}
+	if params.PoolManager.Quoter == (common.Address{}) {
+		return nil, fmt.Errorf("failed to create uniswap v4 http client: quoter=empty")
+	}
 
 	poolKeys, err := validateAndCopyPoolKeys(params.PoolManager.PoolKeys)
 	if err != nil {
@@ -92,6 +98,7 @@ func NewHTTPClient(params HTTPClientParams) (*HTTPClient, error) {
 		rpc:         params.RPC,
 		poolManager: params.PoolManager.Address,
 		stateView:   params.PoolManager.StateView,
+		quoter:      params.PoolManager.Quoter,
 		poolKeys:    poolKeys,
 	}, nil
 }
@@ -137,6 +144,7 @@ func NewWSClient(params WSClientParams) (*WSClient, error) {
 //   - Client creation error.
 //
 // Version:
+//   - 2026-08-19: Composed the required V4Quoter deployment through the HTTP client.
 //   - 2026-08-18: Composed dedicated HTTP and WebSocket clients.
 //   - 2026-08-17: Added.
 func NewClient(params ClientParams) (*Client, error) {

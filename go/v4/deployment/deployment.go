@@ -10,6 +10,7 @@ type Deployment struct {
 	ChainID     uint64
 	PoolManager common.Address
 	StateView   common.Address
+	Quoter      common.Address
 }
 
 // ByChainID returns the latest official Uniswap v4 deployment for a chain.
@@ -22,6 +23,7 @@ type Deployment struct {
 //   - Lookup error when Uniswap does not publish a PoolManager for the chain.
 //
 // Version:
+//   - 2026-08-19: Included the verified V4Quoter when available.
 //   - 2026-08-17: Added.
 func ByChainID(chainID uint64) (Deployment, error) {
 	poolManager, stateView, ok := contractAddresses(chainID)
@@ -32,11 +34,43 @@ func ByChainID(chainID uint64) (Deployment, error) {
 		)
 	}
 
+	quoter, _ := QuoterByChainID(chainID)
 	return Deployment{
 		ChainID:     chainID,
 		PoolManager: common.HexToAddress(poolManager),
 		StateView:   common.HexToAddress(stateView),
+		Quoter:      quoter,
 	}, nil
+}
+
+// QuoterByChainID returns the latest official Uniswap v4 Quoter for a chain.
+//
+// Parameters:
+//   - chainID: EVM chain ID.
+//
+// Returns:
+//   - Official V4Quoter address.
+//   - Lookup error when a verified V4Quoter is unavailable for the chain.
+//
+// Version:
+//   - 2026-08-19: Added.
+func QuoterByChainID(chainID uint64) (common.Address, error) {
+	var address string
+	switch chainID {
+	case 1:
+		address = "0x52f0e24d1c21c8a0cb1e5a5dd6198556bd9e1203"
+	case 56:
+		address = "0x9f75dd27d6664c475b90e105573e550ff69437b0"
+	case 8453:
+		address = "0x0d5e0f971ed27fbff6c2837bf31316121532048d"
+	default:
+		return common.Address{}, fmt.Errorf(
+			"failed to resolve uniswap v4 quoter deployment: official contract is unavailable: chain_id=%d",
+			chainID,
+		)
+	}
+
+	return common.HexToAddress(address), nil
 }
 
 func contractAddresses(chainID uint64) (string, string, bool) {

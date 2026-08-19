@@ -43,6 +43,7 @@ func TestNewClient(t *testing.T) {
 	poolKey := testPoolKey(2)
 	poolManager := common.HexToAddress("0x0000000000000000000000000000000000000003")
 	stateView := common.HexToAddress("0x0000000000000000000000000000000000000004")
+	quoter := common.HexToAddress("0x0000000000000000000000000000000000000005")
 
 	client, err := NewClient(ClientParams{
 		HTTPRPCClient: httpClient,
@@ -50,6 +51,7 @@ func TestNewClient(t *testing.T) {
 		PoolManager: PoolManagerConfig{
 			Address:   poolManager,
 			StateView: stateView,
+			Quoter:    quoter,
 			PoolKeys:  []protocol.PoolKey{poolKey},
 		},
 	})
@@ -67,6 +69,9 @@ func TestNewClient(t *testing.T) {
 	}
 	if client.HTTP.stateView != stateView {
 		t.Fatalf("stateView = %s, want %s", client.HTTP.stateView.Hex(), stateView.Hex())
+	}
+	if client.HTTP.quoter != quoter {
+		t.Fatalf("quoter = %s, want %s", client.HTTP.quoter.Hex(), quoter.Hex())
 	}
 	if len(client.HTTP.poolKeys) != 1 || client.HTTP.poolKeys[0] != poolKey || len(client.WS.poolKeys) != 1 || client.WS.poolKeys[0] != poolKey {
 		t.Fatalf("composed pool keys do not match %+v", poolKey)
@@ -108,6 +113,13 @@ func TestNewClientRejectsInvalidParams(t *testing.T) {
 				params.PoolManager.StateView = common.Address{}
 			},
 			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: state_view=empty",
+		},
+		{
+			name: "empty quoter",
+			mutate: func(params *ClientParams) {
+				params.PoolManager.Quoter = common.Address{}
+			},
+			wantError: "failed to create uniswap v4 client: failed to create uniswap v4 http client: quoter=empty",
 		},
 		{
 			name: "empty pool keys",
@@ -185,6 +197,7 @@ func TestNewWSClientDoesNotRequireHTTP(t *testing.T) {
 	t.Parallel()
 
 	params := validClientParams()
+	params.PoolManager.Quoter = common.Address{}
 	client, err := NewWSClient(WSClientParams{
 		RPC:         params.WSRPCClient,
 		PoolManager: params.PoolManager,
@@ -204,6 +217,7 @@ func validClientParams() ClientParams {
 		PoolManager: PoolManagerConfig{
 			Address:   common.HexToAddress("0x0000000000000000000000000000000000000003"),
 			StateView: common.HexToAddress("0x0000000000000000000000000000000000000004"),
+			Quoter:    common.HexToAddress("0x0000000000000000000000000000000000000005"),
 			PoolKeys:  []protocol.PoolKey{testPoolKey(2)},
 		},
 	}
