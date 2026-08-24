@@ -8,8 +8,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	myCLI "github.com/k4k3ru-hub/cli/go"
 	myOnchainEVM "github.com/k4k3ru-hub/onchain/go/evm"
+	myUniswapV3 "github.com/k4k3ru-hub/uniswap/go/v3"
+	myUniswapV3Deployment "github.com/k4k3ru-hub/uniswap/go/v3/deployment"
+	myUniswapV3Protocol "github.com/k4k3ru-hub/uniswap/go/v3/protocol"
 	myUniswapV4 "github.com/k4k3ru-hub/uniswap/go/v4"
 	"github.com/k4k3ru-hub/uniswap/go/v4/deployment"
 	"github.com/k4k3ru-hub/uniswap/go/v4/protocol"
@@ -24,6 +29,8 @@ const (
 	optionTickSpacing = "tick-spacing"
 	optionHooks       = "hooks"
 	optionBlockNumber = "block-number"
+	optionToken0      = "token0"
+	optionToken1      = "token1"
 )
 
 type getSlot0Input struct {
@@ -40,8 +47,22 @@ type getSlot0Output struct {
 
 type getSlot0Runner func(context.Context, getSlot0Input) (getSlot0Output, error)
 
+type getV3Slot0Input struct {
+	HTTPURL     string
+	ChainID     uint64
+	PoolKey     myUniswapV3Protocol.PoolKey
+	BlockNumber *big.Int
+}
+
+type getV3Slot0Output struct {
+	PoolAddress common.Address
+	Slot0       myUniswapV3.Slot0
+}
+
+type getV3Slot0Runner func(context.Context, getV3Slot0Input) (getV3Slot0Output, error)
+
 func main() {
-	applicationCLI, err := newCLI(executeGetSlot0)
+	applicationCLI, err := newCLI(executeGetSlot0, executeGetV3Slot0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -52,12 +73,48 @@ func main() {
 	}
 }
 
-func newCLI(runner getSlot0Runner) (*myCLI.CLI, error) {
+func newCLI(runner getSlot0Runner, v3Runners ...getV3Slot0Runner) (*myCLI.CLI, error) {
 	if runner == nil {
 		return nil, fmt.Errorf("failed to create uniswap cli: get_slot0_runner=null")
 	}
 
 	applicationCLI := myCLI.NewCLI(nil)
+	v3Runner := executeGetV3Slot0
+	if len(v3Runners) > 0 {
+		v3Runner = v3Runners[0]
+	}
+	if v3Runner == nil {
+		return nil, fmt.Errorf("failed to create uniswap cli: v3_get_slot0_runner=null")
+	}
+	v3Command := myCLI.NewCommand("v3")
+	v3Command.SetUsage("Interact with Uniswap v3.")
+	v3GetSlot0Command := myCLI.NewCommand("get-slot0")
+	v3GetSlot0Command.SetUsage("Get the current Slot0 state for a Uniswap v3 pool.")
+	v3GetSlot0Command.SetAction(newGetV3Slot0Action(v3Runner))
+	for _, item := range []struct {
+		name   string
+		option myCLI.Option
+	}{
+		{optionHTTPURL, myCLI.Option{Alias: "u", Description: "EVM HTTP RPC URL."}},
+		{optionChainID, myCLI.Option{Alias: "n", Description: "EVM chain ID."}},
+		{optionToken0, myCLI.Option{Description: "Pool token0 address."}},
+		{optionToken1, myCLI.Option{Description: "Pool token1 address."}},
+		{optionFee, myCLI.Option{Alias: "f", Description: "Pool fee."}},
+		{optionBlockNumber, myCLI.Option{Alias: "b", Description: "Optional block number; latest when omitted."}},
+	} {
+		if err := v3GetSlot0Command.AddOption(item.name, item.option); err != nil {
+			return nil, fmt.Errorf("failed to create uniswap cli: %w", err)
+		}
+	}
+	if err := v3GetSlot0Command.SetArgumentCount(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to create uniswap cli: %w", err)
+	}
+	if err := v3Command.AddCommand(v3GetSlot0Command); err != nil {
+		return nil, fmt.Errorf("failed to create uniswap cli: %w", err)
+	}
+	if err := applicationCLI.Root().AddCommand(v3Command); err != nil {
+		return nil, fmt.Errorf("failed to create uniswap cli: %w", err)
+	}
 	v4Command := myCLI.NewCommand("v4")
 	v4Command.SetUsage("Interact with Uniswap v4.")
 	getSlot0Command := myCLI.NewCommand("get-slot0")
@@ -255,4 +312,111 @@ func executeGetSlot0(ctx context.Context, input getSlot0Input) (getSlot0Output, 
 	}
 
 	return getSlot0Output{PoolID: poolID, Slot0: slot0}, nil
+}
+
+func newGetV3Slot0Action(runner getV3Slot0Runner) myCLI.CommandFunc {
+	return func(cliContext *myCLI.Context) error {
+		input, err := parseGetV3Slot0Input(cliContext)
+		if err != nil {
+			return fmt.Errorf("failed to execute v3 get-slot0 command: %w", err)
+		}
+		output, err := runner(context.Background(), input)
+		if err != nil {
+			return fmt.Errorf("failed to execute v3 get-slot0 command: %w", err)
+		}
+		blockNumber := "latest"
+		if input.BlockNumber != nil {
+			blockNumber = input.BlockNumber.String()
+		}
+		if err := myCLI.OutputTableTo(cliContext.Output(), []string{"FIELD", "VALUE"}, [][]any{
+			{"chain_id", input.ChainID}, {"block_number", blockNumber}, {"pool_address", output.PoolAddress.Hex()},
+			{"sqrt_price_x96", output.Slot0.SqrtPriceX96.String()}, {"tick", output.Slot0.Tick},
+			{"observation_index", output.Slot0.ObservationIndex}, {"observation_cardinality", output.Slot0.ObservationCardinality},
+			{"observation_cardinality_next", output.Slot0.ObservationCardinalityNext}, {"fee_protocol", output.Slot0.FeeProtocol}, {"unlocked", output.Slot0.Unlocked},
+		}); err != nil {
+			return fmt.Errorf("failed to execute v3 get-slot0 command: %w", err)
+		}
+		return nil
+	}
+}
+
+func parseGetV3Slot0Input(cliContext *myCLI.Context) (getV3Slot0Input, error) {
+	if cliContext == nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: cli_context=null")
+	}
+	httpURL, err := requiredOption(cliContext, optionHTTPURL)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	chainValue, err := requiredOption(cliContext, optionChainID)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	chainID, err := strconv.ParseUint(chainValue, 10, 64)
+	if err != nil || chainID == 0 {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: chain_id=invalid")
+	}
+	token0Value, err := requiredOption(cliContext, optionToken0)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	token0, err := myUniswapV3Protocol.ParseCurrency(token0Value)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w: token=token0", err)
+	}
+	token1Value, err := requiredOption(cliContext, optionToken1)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	token1, err := myUniswapV3Protocol.ParseCurrency(token1Value)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w: token=token1", err)
+	}
+	feeValue, err := requiredOption(cliContext, optionFee)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	fee, err := strconv.ParseUint(feeValue, 10, 32)
+	if err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: fee=invalid")
+	}
+	poolKey := myUniswapV3Protocol.PoolKey{Token0: token0, Token1: token1, Fee: uint32(fee)}
+	if err := poolKey.Validate(); err != nil {
+		return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: %w", err)
+	}
+	var blockNumber *big.Int
+	if option, ok := cliContext.Option(optionBlockNumber); ok && option.IsSet {
+		blockNumber = new(big.Int)
+		if _, ok := blockNumber.SetString(strings.TrimSpace(option.Value), 10); !ok || blockNumber.Sign() < 0 {
+			return getV3Slot0Input{}, fmt.Errorf("failed to parse v3 get-slot0 input: block_number=invalid")
+		}
+	}
+	return getV3Slot0Input{HTTPURL: httpURL, ChainID: chainID, PoolKey: poolKey, BlockNumber: blockNumber}, nil
+}
+
+func executeGetV3Slot0(ctx context.Context, input getV3Slot0Input) (getV3Slot0Output, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	official, err := myUniswapV3Deployment.ByChainID(input.ChainID)
+	if err != nil {
+		return getV3Slot0Output{}, fmt.Errorf("failed to get slot0 from uniswap v3: %w", err)
+	}
+	rpc, err := myOnchainEVM.NewHTTPClient(ctx, myOnchainEVM.HTTPConfig{URL: input.HTTPURL})
+	if err != nil {
+		return getV3Slot0Output{}, fmt.Errorf("failed to get slot0 from uniswap v3: %w", err)
+	}
+	client, err := myUniswapV3.NewHTTPClient(myUniswapV3.HTTPClientParams{RPC: rpc, Factory: myUniswapV3.FactoryConfig{Address: official.Factory, QuoterV2: official.QuoterV2, InitCodeHash: official.InitCodeHash, PoolKeys: []myUniswapV3Protocol.PoolKey{input.PoolKey}}})
+	if err != nil {
+		return getV3Slot0Output{}, fmt.Errorf("failed to get slot0 from uniswap v3: %w", err)
+	}
+	poolAddress, err := input.PoolKey.Address(official.Factory, official.InitCodeHash)
+	if err != nil {
+		return getV3Slot0Output{}, fmt.Errorf("failed to get slot0 from uniswap v3: %w", err)
+	}
+	slot0, err := client.GetSlot0(ctx, poolAddress, input.BlockNumber)
+	if err != nil {
+		return getV3Slot0Output{}, fmt.Errorf("failed to get slot0 from uniswap v3: %w", err)
+	}
+	return getV3Slot0Output{PoolAddress: poolAddress, Slot0: slot0}, nil
 }

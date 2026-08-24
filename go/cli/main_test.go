@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	myUniswapV3 "github.com/k4k3ru-hub/uniswap/go/v3"
 	myUniswapV4 "github.com/k4k3ru-hub/uniswap/go/v4"
 )
 
@@ -65,6 +66,35 @@ func TestGetSlot0Command(t *testing.T) {
 	for _, expected := range []string{"pool_id", "sqrt_price_x96", "79228162514264337593543950336", "tick", "-139", "protocol_fee", "500", "lp_fee", "3000"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("output = %q, want substring %q", output.String(), expected)
+		}
+	}
+}
+
+func TestGetV3Slot0Command(t *testing.T) {
+	t.Parallel()
+	var received getV3Slot0Input
+	applicationCLI, err := newCLI(func(context.Context, getSlot0Input) (getSlot0Output, error) {
+		return getSlot0Output{}, nil
+	}, func(_ context.Context, input getV3Slot0Input) (getV3Slot0Output, error) {
+		received = input
+		return getV3Slot0Output{PoolAddress: common.HexToAddress("0x05"), Slot0: myUniswapV3.Slot0{SqrtPriceX96: big.NewInt(123), Tick: -7, ObservationIndex: 1, ObservationCardinality: 2, ObservationCardinalityNext: 3, FeeProtocol: 4, Unlocked: true}}, nil
+	})
+	if err != nil {
+		t.Fatalf("newCLI() error = %v", err)
+	}
+	var output bytes.Buffer
+	if err := applicationCLI.SetIO(strings.NewReader(""), &output, &bytes.Buffer{}); err != nil {
+		t.Fatalf("SetIO() error = %v", err)
+	}
+	if err := applicationCLI.RunArgs([]string{"v3", "get-slot0", "--http-url", "https://rpc.example", "--chain-id", "8453", "--token0", "0x0000000000000000000000000000000000000001", "--token1", "0x0000000000000000000000000000000000000002", "--fee", "42"}); err != nil {
+		t.Fatalf("RunArgs() error = %v", err)
+	}
+	if received.ChainID != 8453 || received.PoolKey.Fee != 42 || received.BlockNumber != nil {
+		t.Fatalf("received = %+v", received)
+	}
+	for _, expected := range []string{"pool_address", "sqrt_price_x96", "123", "observation_cardinality_next", "fee_protocol", "unlocked", "true"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("output = %q, want %q", output.String(), expected)
 		}
 	}
 }
