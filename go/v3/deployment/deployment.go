@@ -25,6 +25,7 @@ type Deployment struct {
 //   - Lookup error for an unsupported chain.
 //
 // Version:
+//   - 2026-09-06: Added Robinhood Chain Mainnet.
 //   - 2026-08-24: Added.
 func ByChainID(chainID uint64) (Deployment, error) {
 	var factory, quoterV2 string
@@ -38,6 +39,9 @@ func ByChainID(chainID uint64) (Deployment, error) {
 	case 8453:
 		factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
 		quoterV2 = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+	case 4663:
+		factory = "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA"
+		quoterV2 = "0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7"
 	default:
 		return Deployment{}, fmt.Errorf("failed to resolve uniswap v3 deployment: official contracts are unavailable: chain_id=%d", chainID)
 	}

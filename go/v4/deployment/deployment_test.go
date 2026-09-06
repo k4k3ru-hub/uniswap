@@ -88,6 +88,7 @@ func TestQuoterByChainID(t *testing.T) {
 		{1, "0x52f0e24d1c21c8a0cb1e5a5dd6198556bd9e1203"},
 		{56, "0x9f75dd27d6664c475b90e105573e550ff69437b0"},
 		{8453, "0x0d5e0f971ed27fbff6c2837bf31316121532048d"},
+		{4663, "0x8dc178efb8111bb0973dd9d722ebeff267c98f94"},
 	}
 	for _, test := range tests {
 		test := test

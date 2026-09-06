@@ -24,6 +24,7 @@ type Deployment struct {
 //
 // Version:
 //   - 2026-08-19: Included the verified V4Quoter when available.
+//   - 2026-09-06: Included the Robinhood Chain Mainnet V4Quoter.
 //   - 2026-08-17: Added.
 func ByChainID(chainID uint64) (Deployment, error) {
 	poolManager, stateView, ok := contractAddresses(chainID)
@@ -54,6 +55,7 @@ func ByChainID(chainID uint64) (Deployment, error) {
 //
 // Version:
 //   - 2026-08-19: Added.
+//   - 2026-09-06: Added Robinhood Chain Mainnet.
 func QuoterByChainID(chainID uint64) (common.Address, error) {
 	var address string
 	switch chainID {
@@ -63,6 +65,8 @@ func QuoterByChainID(chainID uint64) (common.Address, error) {
 		address = "0x9f75dd27d6664c475b90e105573e550ff69437b0"
 	case 8453:
 		address = "0x0d5e0f971ed27fbff6c2837bf31316121532048d"
+	case 4663:
+		address = "0x8dc178efb8111bb0973dd9d722ebeff267c98f94"
 	default:
 		return common.Address{}, fmt.Errorf(
 			"failed to resolve uniswap v4 quoter deployment: official contract is unavailable: chain_id=%d",

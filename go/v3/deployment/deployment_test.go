@@ -4,7 +4,7 @@ import "testing"
 
 func TestByChainID(t *testing.T) {
 	t.Parallel()
-	for _, chainID := range []uint64{1, 56, 8453} {
+	for _, chainID := range []uint64{1, 56, 8453, 4663} {
 		deployment, err := ByChainID(chainID)
 		if err != nil {
 			t.Fatalf("ByChainID(%d) error = %v", chainID, err)
